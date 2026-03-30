@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>드라마 대본 관리 - 탄저균</title>
+    <title>드라마 대본 관리 - Firebase & GitHub</title>
     <style>
         * {
             margin: 0;
@@ -32,6 +32,7 @@
             color: white;
             padding: 30px;
             text-align: center;
+            position: relative;
         }
 
         .header h1 {
@@ -43,6 +44,64 @@
         .header p {
             opacity: 0.9;
             font-size: 1.1em;
+        }
+
+        .auth-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.1);
+            padding: 8px 15px;
+            border-radius: 20px;
+        }
+
+        .user-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #3498db;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .sync-status {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+        }
+
+        .sync-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #27ae60;
+        }
+
+        .sync-indicator.syncing {
+            background: #f39c12;
+            animation: pulse 1s infinite;
+        }
+
+        .sync-indicator.error {
+            background: #e74c3c;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
         }
 
         .nav-tabs {
@@ -90,6 +149,7 @@
 
         .form-group {
             margin-bottom: 25px;
+            position: relative;
         }
 
         .form-group label {
@@ -131,6 +191,14 @@
             transition: all 0.3s ease;
             margin-right: 10px;
             margin-bottom: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         .btn-primary {
@@ -138,7 +206,7 @@
             color: white;
         }
 
-        .btn-primary:hover {
+        .btn-primary:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
         }
@@ -148,19 +216,19 @@
             color: white;
         }
 
-        .btn-success:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(46, 204, 113, 0.4);
-        }
-
         .btn-warning {
             background: linear-gradient(135deg, #f39c12, #e67e22);
             color: white;
         }
 
-        .btn-warning:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+            color: white;
         }
 
         .episode-list {
@@ -222,30 +290,16 @@
             background: #bdc3c7;
         }
 
-        .differences-panel {
-            background: #fff5f5;
-            border: 1px solid #fed7d7;
-            border-radius: 8px;
-            padding: 20px;
+        .auth-section {
+            text-align: center;
+            padding: 50px;
+        }
+
+        .auth-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
             margin-top: 20px;
-            display: none;
-        }
-
-        .differences-panel.show {
-            display: block;
-        }
-
-        .differences-list {
-            list-style: none;
-        }
-
-        .differences-list li {
-            padding: 8px 0;
-            border-bottom: 1px solid #fed7d7;
-        }
-
-        .differences-list li:last-child {
-            border-bottom: none;
         }
 
         .alert {
@@ -253,6 +307,12 @@
             border-radius: 8px;
             margin-bottom: 20px;
             font-weight: 500;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
         .alert-warning {
@@ -267,10 +327,22 @@
             border: 1px solid #c3e6cb;
         }
 
+        .alert-danger {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
         @media (max-width: 768px) {
             .container {
                 margin: 0;
                 border-radius: 0;
+            }
+
+            .auth-status {
+                position: static;
+                justify-content: center;
+                margin-top: 15px;
             }
 
             .episode-list {
@@ -284,6 +356,11 @@
             .nav-tab {
                 padding: 12px 15px;
             }
+
+            .auth-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
         }
     </style>
 </head>
@@ -291,34 +368,57 @@
     <div class="container">
         <div class="header">
             <h1>🎬 드라마 대본 관리</h1>
-            <p>탄저균 - MBC 극본공모 작품</p>
-        </div>
-
-        <div class="nav-tabs">
-            <button class="nav-tab active" data-tab="logline">로그라인</button>
-            <button class="nav-tab" data-tab="purpose">기획의도</button>
-            <button class="nav-tab" data-tab="characters">인물소개</button>
-            <button class="nav-tab" data-tab="synopsis">시놉시스</button>
-            <button class="nav-tab" data-tab="episodes">화별대본</button>
-            <button class="nav-tab" data-tab="check">일관성체크</button>
-        </div>
-
-        <div class="tab-content">
-            <!-- 로그라인 탭 -->
-            <div class="tab-pane active" id="logline">
-                <div class="form-group">
-                    <label for="loglineText">📝 로그라인</label>
-                    <textarea class="form-control" id="loglineText" placeholder="드라마의 핵심 내용을 한 문장으로 요약해주세요...">2015년 메르스 치료제 승인 거부로 아들을 잃고 실형을 선고받은 전 연구자가, 출소 후 코로나19 대유행 틈에 탄저균으로 관련자들을 차례로 살해하다 질병관리청장에게 "시스템을 끝까지 지킬 수 있는가?"라는 생명을 건 철학적 시험을 가하면서, 일반인의 감기 대처법을 따라가다 예상치 못한 죽음을 맞는 과정을 통해 의료진 불신과 자가진단의 위험성을 경고하는 의료 스릴러</textarea>
+            <p>탄저균 - MBC 극본공모 작품 (Firebase & GitHub)</p>
+            
+            <div class="auth-status">
+                <div id="userInfo" class="user-info" style="display: none;">
+                    <div class="user-avatar" id="userAvatar"></div>
+                    <span id="userName"></span>
                 </div>
-                <button class="btn btn-primary" onclick="saveData('logline')">💾 저장</button>
-                <button class="btn btn-success" onclick="exportData()">📤 전체 내보내기</button>
+                <div class="sync-status">
+                    <div class="sync-indicator" id="syncIndicator"></div>
+                    <span id="syncStatus">동기화됨</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 인증 섹션 -->
+        <div id="authSection" class="auth-section">
+            <h2>📱 로그인이 필요합니다</h2>
+            <p>Google 계정으로 로그인하여 실시간 동기화 기능을 이용하세요</p>
+            <div class="auth-buttons">
+                <button class="btn btn-primary" onclick="signInWithGoogle()">
+                    🔐 Google 로그인
+                </button>
+            </div>
+        </div>
+
+        <!-- 메인 컨텐츠 -->
+        <div id="mainContent" style="display: none;">
+            <div class="nav-tabs">
+                <button class="nav-tab active" data-tab="logline">로그라인</button>
+                <button class="nav-tab" data-tab="purpose">기획의도</button>
+                <button class="nav-tab" data-tab="characters">인물소개</button>
+                <button class="nav-tab" data-tab="synopsis">시놉시스</button>
+                <button class="nav-tab" data-tab="episodes">화별대본</button>
+                <button class="nav-tab" data-tab="settings">설정</button>
             </div>
 
-            <!-- 기획의도 탭 -->
-            <div class="tab-pane" id="purpose">
-                <div class="form-group">
-                    <label for="purposeText">🎯 기획의도</label>
-                    <textarea class="form-control" id="purposeText" style="min-height: 300px;" placeholder="드라마 제작의 목적과 의도를 상세히 작성해주세요...">### 1. 일상적 의료 선택의 위험성 경고
+            <div class="tab-content">
+                <!-- 로그라인 탭 -->
+                <div class="tab-pane active" id="logline">
+                    <div class="form-group">
+                        <label for="loglineText">📝 로그라인</label>
+                        <textarea class="form-control" id="loglineText" placeholder="드라마의 핵심 내용을 한 문장으로 요약해주세요...">2015년 메르스 치료제 승인 거부로 아들을 잃고 실형을 선고받은 전 연구자가, 출소 후 코로나19 대유행 틈에 탄저균으로 관련자들을 차례로 살해하다 질병관리청장에게 "시스템을 끝까지 지킬 수 있는가?"라는 생명을 건 철학적 시험을 가하면서, 일반인의 감기 대처법을 따라가다 예상치 못한 죽음을 맞는 과정을 통해 의료진 불신과 자가진단의 위험성을 경고하는 의료 스릴러</textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveData('logline')">💾 저장</button>
+                </div>
+
+                <!-- 기획의도 탭 -->
+                <div class="tab-pane" id="purpose">
+                    <div class="form-group">
+                        <label for="purposeText">🎯 기획의도</label>
+                        <textarea class="form-control" id="purposeText" style="min-height: 300px;" placeholder="드라마 제작의 목적과 의도를 상세히 작성해주세요...">### 1. 일상적 의료 선택의 위험성 경고
 누구나 경험하는 감기라는 흔한 질병을 소재로, 평범한 사람들의 일반적 대처 방식이 어떻게 치명적 결과로 이어질 수 있는지를 보여줍니다.
 
 ### 2. 팬데믹 시대 의료 시스템의 취약점 고발
@@ -332,15 +432,15 @@
 
 ### 5. 복수와 정의의 철학적 경계선
 개인적 원한에서 시작되었지만 철학적 질문으로 승화된 복수의 이야기를 통해, 그럼에도 용서받을 수 없는 악의 본질을 보여줍니다.</textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveData('purpose')">💾 저장</button>
                 </div>
-                <button class="btn btn-primary" onclick="saveData('purpose')">💾 저장</button>
-            </div>
 
-            <!-- 인물소개 탭 -->
-            <div class="tab-pane" id="characters">
-                <div class="form-group">
-                    <label for="charactersText">👥 주요 인물 소개</label>
-                    <textarea class="form-control" id="charactersText" style="min-height: 400px;" placeholder="주요 등장인물들의 상세 정보를 작성해주세요...">### 한민선 (50대, 여성)
+                <!-- 인물소개 탭 -->
+                <div class="tab-pane" id="characters">
+                    <div class="form-group">
+                        <label for="charactersText">👥 주요 인물 소개</label>
+                        <textarea class="form-control" id="charactersText" style="min-height: 400px;" placeholder="주요 등장인물들의 상세 정보를 작성해주세요...">### 한민선 (50대, 여성)
 **직업**: 질병관리청장
 **성격**: 원칙주의자, 완벽주의, 융통성 부족, 시스템에 대한 절대적 신뢰
 **배경**: 2015년 메르스 사태 당시 치료제 승인을 단호히 거부
@@ -357,15 +457,15 @@
 **실제 신분**: 2015년 메르스 치료제 연구자, 현재는 전과자
 **복수 철학**: "당신은 끝까지 완벽하게 시스템을 지킬 수 있는가?"라는 철학적 질문
 **갈등**: 동정받을 만한 과거를 가졌지만 결국 용서받을 수 없는 순수 악인</textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveData('characters')">💾 저장</button>
                 </div>
-                <button class="btn btn-primary" onclick="saveData('characters')">💾 저장</button>
-            </div>
 
-            <!-- 시놉시스 탭 -->
-            <div class="tab-pane" id="synopsis">
-                <div class="form-group">
-                    <label for="synopsisText">📖 전체 줄거리 (시놉시스)</label>
-                    <textarea class="form-control" id="synopsisText" style="min-height: 500px;" placeholder="드라마의 전체 줄거리를 상세히 작성해주세요...">### 프롤로그: 시스템과 개인의 충돌 (2015년)
+                <!-- 시놉시스 탭 -->
+                <div class="tab-pane" id="synopsis">
+                    <div class="form-group">
+                        <label for="synopsisText">📖 전체 줄거리 (시놉시스)</label>
+                        <textarea class="form-control" id="synopsisText" style="min-height: 500px;" placeholder="드라마의 전체 줄거리를 상세히 작성해주세요...">### 프롤로그: 시스템과 개인의 충돌 (2015년)
 2015년 메르스 대유행 당시, 연구자 이현우는 12세 아들 준호가 메르스에 감염되어 위급한 상황이 되자 자신이 개발 중인 치료제의 긴급 사용 승인을 요청한다...
 
 ### 1막: 조용한 준비와 은밀한 복수 (2018-2022년)
@@ -382,65 +482,201 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
 
 ### 5막: 성찰과 변화 (9-10화)
 사건은 사회 전체에 큰 파장을 일으킨다...</textarea>
+                    </div>
+                    <button class="btn btn-primary" onclick="saveData('synopsis')">💾 저장</button>
                 </div>
-                <button class="btn btn-primary" onclick="saveData('synopsis')">💾 저장</button>
-            </div>
 
-            <!-- 화별대본 탭 -->
-            <div class="tab-pane" id="episodes">
-                <div class="episode-list" id="episodeList">
-                    <!-- JavaScript로 생성 -->
+                <!-- 화별대본 탭 -->
+                <div class="tab-pane" id="episodes">
+                    <div class="episode-list" id="episodeList"></div>
+                    
+                    <div id="episodeEditor" style="display: none;">
+                        <div class="form-group">
+                            <label for="episodeTitle">📺 화 제목</label>
+                            <input type="text" class="form-control" id="episodeTitle" placeholder="예: 제1화: 평범한 감기">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="episodeContent">📝 대본 내용</label>
+                            <textarea class="form-control" id="episodeContent" style="min-height: 500px; font-family: 'Courier New', monospace;" placeholder="대본을 작성해주세요..."></textarea>
+                        </div>
+                        
+                        <button class="btn btn-primary" onclick="saveEpisode()">💾 저장</button>
+                        <button class="btn btn-warning" onclick="backToEpisodeList()">📋 목록으로</button>
+                    </div>
                 </div>
-                
-                <div id="episodeEditor" style="display: none;">
-                    <div class="form-group">
-                        <label for="episodeTitle">📺 화 제목</label>
-                        <input type="text" class="form-control" id="episodeTitle" placeholder="예: 제1화: 평범한 감기">
+
+                <!-- 설정 탭 -->
+                <div class="tab-pane" id="settings">
+                    <h2>⚙️ 설정</h2>
+                    
+                    <div class="alert alert-info">
+                        <strong>📡 실시간 동기화:</strong> Firebase를 통해 모든 변경사항이 자동으로 저장됩니다.
                     </div>
                     
-                    <div class="form-group">
-                        <label for="episodeContent">📝 대본 내용</label>
-                        <textarea class="form-control" id="episodeContent" style="min-height: 500px; font-family: 'Courier New', monospace;" placeholder="대본을 작성해주세요..."></textarea>
-                    </div>
-                    
-                    <button class="btn btn-primary" onclick="saveEpisode()">💾 저장</button>
-                    <button class="btn btn-warning" onclick="backToEpisodeList()">📋 목록으로</button>
-                </div>
-            </div>
-
-            <!-- 일관성체크 탭 -->
-            <div class="tab-pane" id="check">
-                <h2>🔍 내용 일관성 체크</h2>
-                <p>로그라인, 기획의도, 인물소개, 시놉시스, 화별 내용 간의 차이점을 확인합니다.</p>
-                
-                <button class="btn btn-warning" onclick="checkConsistency()">🔍 일관성 검사 실행</button>
-                
-                <div id="consistencyResults" class="differences-panel">
-                    <h3>⚠️ 발견된 차이점</h3>
-                    <ul id="differencesList" class="differences-list"></ul>
+                    <button class="btn btn-success" onclick="exportData()">📤 전체 데이터 내보내기</button>
+                    <button class="btn btn-danger" onclick="signOut()">🚪 로그아웃</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // 전역 변수
-        let currentEpisode = null;
-        const maxEpisodes = 10;
-        let savedData = {
-            logline: '',
-            purpose: '',
-            characters: '',
-            synopsis: '',
-            episodes: {}
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Firebase 설정 및 초기화
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js';
+        import { getFirestore, collection, doc, setDoc, getDoc, onSnapshot, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js';
+
+        // Firebase 구성 - 여기를 수정하세요!
+        const firebaseConfig = {
+            apiKey: "AIzaSyCRwwGV_fTMtpipdBDhdJr4noqwHT1MAn4",
+            authDomain: "bacillus-anthracis-drama.firebaseapp.com",
+            projectId: "bacillus-anthracis-drama",
+            storageBucket: "bacillus-anthracis-drama.firebasestorage.app",
+            messagingSenderId: "706350177857",
+            appId: "1:706350177857:web:1ff8437c0f4f74d645b0c0",
+            measurementId: "G-8J0QXH1DHE"
         };
 
-        // 초기화
-        document.addEventListener('DOMContentLoaded', function() {
-            loadData();
+        // Firebase 초기화
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // 전역 변수
+        let currentUser = null;
+        let currentEpisode = null;
+        const maxEpisodes = 10;
+        const projectId = 'anthrax-drama';
+
+        // 인증 상태 변경 감지
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                showMainContent();
+                setupRealtimeSync();
+                updateUserInfo(user);
+                loadAllData();
+            } else {
+                currentUser = null;
+                showAuthSection();
+            }
+        });
+
+        // UI 표시/숨김
+        function showAuthSection() {
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('mainContent').style.display = 'none';
+        }
+
+        function showMainContent() {
+            document.getElementById('authSection').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
             createEpisodeList();
             setupTabNavigation();
-        });
+        }
+
+        // 사용자 정보 업데이트
+        function updateUserInfo(user) {
+            document.getElementById('userName').textContent = user.displayName || user.email;
+            document.getElementById('userAvatar').textContent = (user.displayName || user.email).charAt(0).toUpperCase();
+            document.getElementById('userInfo').style.display = 'flex';
+        }
+
+        // 실시간 동기화 설정
+        function setupRealtimeSync() {
+            const docRef = doc(db, 'drama-scripts', projectId);
+            
+            onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    updateUIWithData(data);
+                    updateSyncStatus('synced');
+                } else {
+                    createInitialDocument();
+                }
+            }, (error) => {
+                console.error('실시간 동기화 오류:', error);
+                updateSyncStatus('error');
+            });
+        }
+
+        // UI에 데이터 반영
+        function updateUIWithData(data) {
+            ['logline', 'purpose', 'characters', 'synopsis'].forEach(field => {
+                if (data[field]) {
+                    const element = document.getElementById(field + 'Text');
+                    if (element) {
+                        element.value = data[field].content || data[field] || '';
+                    }
+                }
+            });
+
+            if (data.episodes) {
+                Object.keys(data.episodes).forEach(episodeNum => {
+                    const episode = data.episodes[episodeNum];
+                    if (currentEpisode === parseInt(episodeNum)) {
+                        document.getElementById('episodeTitle').value = episode.title || '';
+                        document.getElementById('episodeContent').value = episode.content || '';
+                    }
+                });
+                createEpisodeList();
+            }
+        }
+
+        // 초기 문서 생성
+        async function createInitialDocument() {
+            const initialData = {
+                logline: { content: '', lastModified: new Date(), author: currentUser.displayName },
+                purpose: { content: '', lastModified: new Date(), author: currentUser.displayName },
+                characters: { content: '', lastModified: new Date(), author: currentUser.displayName },
+                synopsis: { content: '', lastModified: new Date(), author: currentUser.displayName },
+                episodes: {},
+                createdAt: new Date(),
+                lastActivity: new Date()
+            };
+
+            try {
+                await setDoc(doc(db, 'drama-scripts', projectId), initialData);
+            } catch (error) {
+                console.error('초기 문서 생성 오류:', error);
+            }
+        }
+
+        // 전체 데이터 로드
+        async function loadAllData() {
+            try {
+                const docSnap = await getDoc(doc(db, 'drama-scripts', projectId));
+                if (docSnap.exists()) {
+                    updateUIWithData(docSnap.data());
+                }
+            } catch (error) {
+                console.error('데이터 로드 오류:', error);
+            }
+        }
+
+        // 동기화 상태 업데이트
+        function updateSyncStatus(status) {
+            const indicator = document.getElementById('syncIndicator');
+            const statusText = document.getElementById('syncStatus');
+            
+            indicator.className = 'sync-indicator';
+            switch(status) {
+                case 'syncing':
+                    indicator.classList.add('syncing');
+                    statusText.textContent = '동기화 중...';
+                    break;
+                case 'synced':
+                    statusText.textContent = '동기화됨';
+                    break;
+                case 'error':
+                    indicator.classList.add('error');
+                    statusText.textContent = '동기화 오류';
+                    break;
+            }
+        }
 
         // 탭 네비게이션 설정
         function setupTabNavigation() {
@@ -451,11 +687,9 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
                 tab.addEventListener('click', () => {
                     const targetTab = tab.dataset.tab;
                     
-                    // 모든 탭과 패널 비활성화
                     tabs.forEach(t => t.classList.remove('active'));
                     panes.forEach(p => p.classList.remove('active'));
                     
-                    // 선택된 탭과 패널 활성화
                     tab.classList.add('active');
                     document.getElementById(targetTab).classList.add('active');
                 });
@@ -465,6 +699,8 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
         // 에피소드 리스트 생성
         function createEpisodeList() {
             const container = document.getElementById('episodeList');
+            if (!container) return;
+            
             container.innerHTML = '';
 
             for (let i = 1; i <= maxEpisodes; i++) {
@@ -472,13 +708,9 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
                 episode.className = 'episode-card';
                 episode.onclick = () => editEpisode(i);
 
-                const hasContent = savedData.episodes[i] && savedData.episodes[i].content;
-                const statusClass = hasContent ? 'status-saved' : 'status-empty';
-                
                 episode.innerHTML = `
-                    <h3><span class="status-indicator ${statusClass}"></span>${i}화</h3>
-                    <p>${hasContent ? '작성완료' : '미작성'}</p>
-                    ${savedData.episodes[i] ? `<small>${savedData.episodes[i].title || '제목 없음'}</small>` : ''}
+                    <h3><span class="status-indicator status-empty"></span>${i}화</h3>
+                    <p>미작성</p>
                 `;
                 
                 container.appendChild(episode);
@@ -491,13 +723,11 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
             document.getElementById('episodeList').style.display = 'none';
             document.getElementById('episodeEditor').style.display = 'block';
 
-            // 기존 데이터 로드
-            const episode = savedData.episodes[episodeNum] || {};
-            document.getElementById('episodeTitle').value = episode.title || `제${episodeNum}화: `;
-            document.getElementById('episodeContent').value = episode.content || '';
+            document.getElementById('episodeTitle').value = `제${episodeNum}화: `;
+            document.getElementById('episodeContent').value = '';
 
             // 1화 기본 내용 설정
-            if (episodeNum === 1 && !episode.content) {
+            if (episodeNum === 1) {
                 document.getElementById('episodeTitle').value = '제1화: 평범한 감기';
                 document.getElementById('episodeContent').value = `# 탄저균
 ## 제1화: 평범한 감기
@@ -518,28 +748,170 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
 
 같은 아파트 앞. 구급차와 경찰차가 서 있다. 검은 비닐에 싸인 시체가 실려나온다.
 
-...`;
+**경찰관**  
+사인이 뭐라고 하던가?
+
+**검시관**  
+코로나 합병증이라는데... 감기였다가 갑자기 악화됐대요.
+
+**경찰관**  
+요즘 코로나가 그러잖아. 멀쩡하던 사람도 갑자기...
+
+---
+
+### ★ 대전 서구 - 단독주택 - 저녁 (6개월 전)
+
+**이상철**(52, 전 대전지법 판사)이 거실에서 독서를 하고 있다. 아내가 따뜻한 차를 가져온다.
+
+**이상철 아내**  
+여보, 기침이 계속 나는 것 같은데...
+
+**이상철**  
+그냥 환절기 감기야. 약국에서 종합감기약 사먹었어.
+
+**이상철 아내**  
+그래도 병원에서 한번...
+
+**이상철**  
+(손 저으며)  
+의사들이 뭐 특별한 약을 주나. 다 똑같은 약인데. 게다가 요즘 병원 가면 다른 병 옮을 수도 있고.
+
+**★ 화면에 자막: "3일 후"**
+
+같은 집 앞. 또다시 구급차. 이상철이 들것에 실려나온다.
+
+**구급대원**  
+(아내에게)  
+언제부터 이 상태였나요?
+
+**이상철 아내**  
+(울먹이며)  
+어제까지만 해도 감기라고... 그런데 갑자기...
+
+**구급대원**  
+요즘 코로나 변이가 독해서... 조심하세요.
+
+---
+
+### ★ 현재 - 질병관리청 - 한민선 사무실 - 오전
+
+깔끔하게 정리된 청장실. **한민선**(50)이 서류를 검토하고 있다. 
+
+벽에는 "국민건강 수호"라는 슬로건과 각종 상패들이 걸려있다.
+
+**박상민**(40, 감염병관리과장)이 들어온다.
+
+**박상민**  
+청장님, 오늘 오후 국정감사 준비 회의 있으시고요.
+
+**한민선**  
+(고개 끄덕이며)  
+네, 자료는 다 준비됐죠?
+
+가볍게 기침을 한다.
+
+**박상민**  
+감기 기운이신가요?
+
+**한민선**  
+(씁쓸한 미소)  
+내가 감염병 전문가인데, 감기 정도야. 
+
+다시 기침한다.
+
+**한민선**  
+요즘 일이 많아서 컨디션이 좀 안 좋은 것 같네요.
+
+---
+
+### ★ 질병관리청 복도 - 같은 시간
+
+**이현우**(45)가 청소카트를 밀고 복도를 지나간다. 수수한 청소복 차림에 조용한 인상이다.
+
+다른 직원들과 자연스럽게 인사를 나눈다.
+
+**직원 A**  
+이 기사님, 오늘도 수고하세요.
+
+**이현우**  
+(단정하게)  
+네, 수고하세요.
+
+한민선 사무실 앞을 지날 때, 안에서 기침 소리가 들린다. 
+
+이현우는 잠시 멈춰서 듣는다. 아주 미묘하게 입꼬리가 올라갔다가 금세 평온해진다.
+
+**이현우**  
+(속으로, 작은 소리로)  
+시작됐군.
+
+---
+
+### ★ 한민선 집 - 저녁
+
+아늑한 거실. **서준호**(60)가 의학 관련 뉴스를 보고 있다. 은퇴한 의사답게 차분한 인상이다.
+
+한민선이 퇴근하며 들어온다.
+
+**서준호**  
+어서 와. 오늘 힘들었지?
+
+**한민선**  
+(기침하며)  
+응, 좀 피곤해. 감기 기운이 있는 것 같아.
+
+서준호가 걱정스러운 표정으로 한민선의 이마에 손을 대본다.
+
+**서준호**  
+열은 없는 것 같은데... 목이 아픈가?
+
+**한민선**  
+그냥 칼칼하고. 환절기라 그런가 봐.
+
+**서준호**  
+그냥 감기약 먹고 푹 쉬면 될 것 같은데. 내가 타이레놀 가져다 줄게.
+
+타이레놀과 따뜻한 물을 가져온다.
+
+**서준호**  
+30년 의사 경험으로는, 이 정도면 하루 이틀 푹 쉬면 나을 거야. 병원 가봤자 똑같은 약 줄 텐데.
+
+**한민선**  
+(약을 먹으며)  
+맞아. 내가 감염병 전문가인데 이 정도로 병원 가는 건 좀 과하지. 내일 아침에 좀 나아지겠지.
+
+---
+
+**★ END OF EPISODE 1**`;
             }
         }
 
         // 에피소드 저장
         function saveEpisode() {
-            if (!currentEpisode) return;
+            if (!currentUser || !currentEpisode) return;
 
+            updateSyncStatus('syncing');
             const title = document.getElementById('episodeTitle').value;
             const content = document.getElementById('episodeContent').value;
 
-            if (!savedData.episodes[currentEpisode]) {
-                savedData.episodes[currentEpisode] = {};
-            }
-
-            savedData.episodes[currentEpisode].title = title;
-            savedData.episodes[currentEpisode].content = content;
-
-            localStorage.setItem('dramaData', JSON.stringify(savedData));
-            
-            showAlert('에피소드가 저장되었습니다!', 'success');
-            createEpisodeList();
+            const docRef = doc(db, 'drama-scripts', projectId);
+            updateDoc(docRef, {
+                [`episodes.${currentEpisode}`]: {
+                    title,
+                    content,
+                    lastModified: serverTimestamp(),
+                    author: currentUser.displayName || currentUser.email
+                },
+                lastActivity: serverTimestamp()
+            }).then(() => {
+                showAlert('에피소드가 저장되었습니다!', 'success');
+                updateSyncStatus('synced');
+                createEpisodeList();
+            }).catch(error => {
+                console.error('에피소드 저장 오류:', error);
+                showAlert('저장에 실패했습니다: ' + error.message, 'danger');
+                updateSyncStatus('error');
+            });
         }
 
         // 에피소드 목록으로 돌아가기
@@ -549,117 +921,82 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
             currentEpisode = null;
         }
 
-        // 데이터 저장
-        function saveData(type) {
+        // 전역 함수들
+        window.signInWithGoogle = async function() {
+            try {
+                await signInWithPopup(auth, provider);
+            } catch (error) {
+                console.error('로그인 오류:', error);
+                showAlert('로그인에 실패했습니다: ' + error.message, 'danger');
+            }
+        };
+
+        window.signOut = async function() {
+            try {
+                await firebaseSignOut(auth);
+            } catch (error) {
+                console.error('로그아웃 오류:', error);
+            }
+        };
+
+        window.saveData = async function(type) {
+            if (!currentUser) return;
+
+            updateSyncStatus('syncing');
             const element = document.getElementById(type + 'Text');
-            savedData[type] = element.value;
-            localStorage.setItem('dramaData', JSON.stringify(savedData));
-            showAlert('저장되었습니다!', 'success');
-        }
+            const content = element.value;
 
-        // 데이터 로드
-        function loadData() {
-            const stored = localStorage.getItem('dramaData');
-            if (stored) {
-                savedData = JSON.parse(stored);
-                
-                // UI에 데이터 반영
-                if (savedData.logline) document.getElementById('loglineText').value = savedData.logline;
-                if (savedData.purpose) document.getElementById('purposeText').value = savedData.purpose;
-                if (savedData.characters) document.getElementById('charactersText').value = savedData.characters;
-                if (savedData.synopsis) document.getElementById('synopsisText').value = savedData.synopsis;
+            try {
+                const docRef = doc(db, 'drama-scripts', projectId);
+                await updateDoc(docRef, {
+                    [type]: {
+                        content,
+                        lastModified: serverTimestamp(),
+                        author: currentUser.displayName || currentUser.email
+                    },
+                    lastActivity: serverTimestamp()
+                });
+
+                showAlert('저장되었습니다!', 'success');
+                updateSyncStatus('synced');
+            } catch (error) {
+                console.error('저장 오류:', error);
+                showAlert('저장에 실패했습니다: ' + error.message, 'danger');
+                updateSyncStatus('error');
             }
-        }
+        };
 
-        // 전체 데이터 내보내기
-        function exportData() {
-            const data = {
-                title: '탄저균 - MBC 극본공모 작품',
-                exported: new Date().toISOString(),
-                ...savedData
-            };
+        window.saveEpisode = saveEpisode;
+        window.editEpisode = editEpisode;
+        window.backToEpisodeList = backToEpisodeList;
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = '탄저균_드라마_대본_' + new Date().toISOString().slice(0, 10) + '.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        }
+        // 데이터 내보내기
+        window.exportData = async function() {
+            try {
+                const docSnap = await getDoc(doc(db, 'drama-scripts', projectId));
+                if (docSnap.exists()) {
+                    const data = {
+                        title: '탄저균 - MBC 극본공모 작품',
+                        exported: new Date().toISOString(),
+                        ...docSnap.data()
+                    };
 
-        // 일관성 체크
-        function checkConsistency() {
-            const differences = [];
-            
-            // 인물명 체크
-            const characters = extractCharacterNames(savedData.characters);
-            const loglineChars = extractCharacterNames(savedData.logline);
-            const synopsisChars = extractCharacterNames(savedData.synopsis);
-            
-            // 에피소드별 인물명 체크
-            Object.values(savedData.episodes).forEach((episode, index) => {
-                if (episode.content) {
-                    const episodeChars = extractCharacterNames(episode.content);
-                    episodeChars.forEach(char => {
-                        if (!characters.includes(char)) {
-                            differences.push(`${index + 1}화에 등장하는 "${char}"이(가) 인물소개에 없습니다.`);
-                        }
-                    });
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '탄저균_드라마_대본_' + new Date().toISOString().slice(0, 10) + '.json';
+                    a.click();
+                    URL.revokeObjectURL(url);
                 }
-            });
-
-            // 설정 일관성 체크
-            const timelineCheck = checkTimeline();
-            if (timelineCheck.length > 0) {
-                differences.push(...timelineCheck);
+            } catch (error) {
+                console.error('내보내기 오류:', error);
+                showAlert('내보내기에 실패했습니다: ' + error.message, 'danger');
             }
-
-            // 결과 표시
-            const resultsPanel = document.getElementById('consistencyResults');
-            const differencesList = document.getElementById('differencesList');
-            
-            if (differences.length > 0) {
-                differencesList.innerHTML = differences.map(diff => `<li>⚠️ ${diff}</li>`).join('');
-                resultsPanel.classList.add('show');
-            } else {
-                differencesList.innerHTML = '<li>✅ 일관성 문제가 발견되지 않았습니다.</li>';
-                resultsPanel.classList.add('show');
-            }
-        }
-
-        // 인물명 추출 (간단한 패턴 매칭)
-        function extractCharacterNames(text) {
-            const matches = text.match(/\*\*([가-힣]+)\*\*/g);
-            return matches ? matches.map(m => m.replace(/\*\*/g, '')) : [];
-        }
-
-        // 타임라인 체크
-        function checkTimeline() {
-            const issues = [];
-            
-            // 2015년, 2018년, 2020년 등 주요 년도가 일관되게 사용되는지 체크
-            const years = ['2015', '2018', '2020', '2024'];
-            const allText = [savedData.logline, savedData.purpose, savedData.characters, savedData.synopsis].join(' ');
-            
-            years.forEach(year => {
-                const count = (allText.match(new RegExp(year, 'g')) || []).length;
-                if (count > 0) {
-                    // 각 에피소드에서도 같은 년도가 언급되는지 확인
-                    Object.values(savedData.episodes).forEach((episode, index) => {
-                        if (episode.content && episode.content.includes(year)) {
-                            // 타임라인 체크 로직 (여기서는 간단히 구현)
-                        }
-                    });
-                }
-            });
-
-            return issues;
-        }
+        };
 
         // 알림 표시
         function showAlert(message, type = 'success') {
-            // 기존 알림 제거
             const existingAlert = document.querySelector('.alert');
             if (existingAlert) {
                 existingAlert.remove();
@@ -672,7 +1009,6 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
             const container = document.querySelector('.tab-content');
             container.insertBefore(alert, container.firstChild);
             
-            // 3초 후 자동 제거
             setTimeout(() => {
                 if (alert.parentNode) {
                     alert.remove();
@@ -680,17 +1016,11 @@ CCTV 분석과 내부 조사를 통해 범인이 평범해 보였던 청소직�
             }, 3000);
         }
 
-        // 자동 저장 (5분마다)
-        setInterval(() => {
-            const currentTab = document.querySelector('.tab-pane.active').id;
-            if (currentTab !== 'episodes' && currentTab !== 'check') {
-                const element = document.getElementById(currentTab + 'Text');
-                if (element && element.value !== savedData[currentTab]) {
-                    savedData[currentTab] = element.value;
-                    localStorage.setItem('dramaData', JSON.stringify(savedData));
-                }
-            }
-        }, 300000); // 5분
+        // 초기화
+        document.addEventListener('DOMContentLoaded', function() {
+            setupTabNavigation();
+            createEpisodeList();
+        });
     </script>
 </body>
 </html>
